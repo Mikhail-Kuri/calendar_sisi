@@ -1,0 +1,165 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+}
+
+.container {
+    padding: 3rem;
+    background: #fff0f5;
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.eyelashSelectWrapper {
+    background: #fff0f5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.typeList {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.typeCard {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    width: 240px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.typeCard:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    border: 2px solid #b85c9e;
+}
+
+.calendarWrapper {
+    background: #ffffff;
+    padding: 1rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.title {
+    font-size: 2rem;
+    text-align: center;
+    color: #b85c9e;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    text-align: center;
+    color: #555;
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modalContent {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 1rem;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #b85c9e;
+}
+
+.input, .textarea {
+    width: 100%;
+    padding: 0.7rem;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #ccc;
+}
+
+.textarea {
+    height: 80px;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.button {
+    padding: 0.7rem 1.2rem;
+    background-color: #b85c9e;
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.button:hover {
+    background-color: #a64b8b;
+}
+
+.buttonDisabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+.fc .fc-bg-event {
+    opacity: 1;
+}
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 1.5rem;
+    }
+    .eyelashSelectWrapper {
+        padding: 1rem;
+    }
+    .calendarWrapper {
+        padding: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .typeCard {
+        width: 90%;
+    }
+    .title {
+        font-size: 1.5rem;
+    }
+    .subtitle {
+        font-size: 1rem;
+    }
+    .modalContent {
+        padding: 1rem;
+    }
+}
