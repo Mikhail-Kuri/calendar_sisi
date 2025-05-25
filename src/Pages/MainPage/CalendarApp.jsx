@@ -6,13 +6,15 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import LoadingScreen from "../../composant/Loading/LoadingScreen";
 import {BackgroundBubbles} from "../../composant/Effects/BackgroundEffects/BackgroundBubbles";
 import './CSS/CalendarApp.css';
-
+import {formatPhoneNumber, isValidEmail, isValidPhone} from "../../utils/validators";
+import {HEURE_TYPE_CILS} from "../../utils/constants";
+import EyelashTypeSelector from "../../composant/Pages/EyelashTypeSelector";
+import { fetchAppointments } from '../../services/fetcher/fetchAppointments';
 
 function CalendarApp() {
     const [events, setEvents] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [eyelashType, setEyelashType] = useState('');
-    const [hoveredType, setHoveredType] = useState(null);
     const [formData, setFormData] = useState({
         phone: '',
         email: '',
@@ -20,144 +22,56 @@ function CalendarApp() {
         start: ''
     });
     const calendarRef = useRef();
-    const isValidEmail = (email) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-    const isValidPhone = (phone) =>
-        /^\(\d{3}\) \d{3}-\d{4}$/.test(phone);
-
-    const heure_typeCils = {
-        'Classique': 3,
-        'Volume': 5,
-        'Hybride': 4,
-    }
-
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingVisible, setLoadingVisible] = useState(true);
-
     const [showLoadingModal, setShowLoadingModal] = useState(false);
     const [loadingSuccess, setLoadingSuccess] = useState(false);
-
-
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [currentView, setCurrentView] = useState(isMobile ? 'dayGridMonth' : 'timeGridWeek');
 
-    function goNext() {
-        const calendarApi = calendarRef.current.getApi()
-        calendarApi.next()
-    }
+// Chargement des événements
+    const loadEvents = async () => {
+        const events = await fetchAppointments();
+        setEvents(events);
+    };
 
+// Initialisation : userId + écouteur resize
     useEffect(() => {
         if (!localStorage.getItem("userId")) {
             const id = crypto.randomUUID();
             localStorage.setItem("userId", id);
         }
-    }, []);
 
-    useEffect(() => {
         const handleResize = () => {
             setIsMobile(window.innerWidth < 768);
         };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
-
+// Chargement des événements lorsque le type est sélectionné
     useEffect(() => {
         if (eyelashType) {
             setIsLoading(true);
-
-            const fetchAndDelay = async () => {
-                const startTime = Date.now();
-                try {
-                    const res = await fetch("http://localhost:5000/appointments");
-                    const data = await res.json();
-                    console.log("Data fetchedaaaaaaaaaaaaaaaaaa:", data);
-                    const currentUserId = localStorage.getItem("userId");
-                    let myEventIds = JSON.parse(localStorage.getItem(currentUserId) || "[]");
-
-                    // Vérifie si au moins un event.id est dans myEventIds
-                    const userStillHasEvent = data.some(event => myEventIds.includes(event.id));
-
-                    // Si aucun de ses events n'existe encore, on régénère un userId
-                    if (!userStillHasEvent) {
-                        // Supprimer l'ancienne clé
-                        localStorage.removeItem(currentUserId);
-
-                        // Générer un nouvel ID (ex: UUID v4 simplifié ici)
-                        const newUserId = crypto.randomUUID();
-
-                        // Créer une nouvelle entrée vide
-                        localStorage.setItem(newUserId, JSON.stringify([]));
-                        localStorage.setItem("userId", newUserId);
-
-                        // Mettre à jour les variables locales
-                        myEventIds = [];
-                    }
-
-                    // Met à jour l'affichage des événements
-// Met à jour l'affichage des événements
-                    const processedEvents = data
-                        .filter(event => {
-                            const isMine = myEventIds.includes(event.id);
-                            const isPrivate = event.visibility === 'private';
-                            // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
-                            return !isPrivate || isMine;
-                        })
-                        .map(event => {
-                            const isMine = myEventIds.includes(event.id);
-                            if (isMine) {
-                                return {
-                                    ...event,
-                                    display: 'auto',
-                                    color: '#b85c9e'
-                                };
-                            } else {
-                                const startDate = new Date(event.start);
-                                const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
-                                return {
-                                    ...event,
-                                    display: 'auto',
-                                    color: '#ff3b3b',
-                                    title: 'Période indisponible'
-                                };
-                            }
-                        });
-
-
-                    setEvents(processedEvents);
-                } catch (err) {
-                    console.error("Erreur de chargement :", err);
-                } finally {
-                    const elapsed = Date.now() - startTime;
-                    const remainingTime = 3000 - elapsed;
-                    setTimeout(() => {
-                        setIsLoading(false);
-                        setTimeout(() => setLoadingVisible(false), 300); // délai pour animation
-                    }, Math.max(0, remainingTime));
-                }
-            };
-
-            fetchAndDelay();
+            loadEvents().then(() => {
+                setIsLoading(false);
+            });
         }
     }, [eyelashType]);
 
-
+// Sélection de date dans le calendrier
     const handleDateClick = (info) => {
-        setFormData(prev => ({...prev, start: info.dateStr}));
+        setFormData(prev => ({ ...prev, start: info.dateStr }));
         setShowModal(true);
     };
 
-    const formatPhoneNumber = (value) => {
-        const digits = value.replace(/\D/g, '').slice(0, 10);
-        if (digits.length < 4) return digits;
-        if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    };
-
+// Envoi du formulaire
     const handleSubmit = async () => {
-        const {phone, email, message, start} = formData;
+        const { phone, email, message, start } = formData;
 
         if (!eyelashType || !phone || !email) {
             alert("Veuillez remplir tous les champs obligatoires.");
@@ -177,17 +91,17 @@ function CalendarApp() {
         if (isSubmitting) return;
         setIsSubmitting(true);
         setShowLoadingModal(true);
-        setLoadingSuccess(false); // reset au début
+        setLoadingSuccess(false);
 
         try {
             const res = await fetch('http://localhost:5000/appointments', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: "En attente du depot",
+                    title: "En attente du dépôt",
                     description: `Type de lash: ${eyelashType}\nTéléphone : ${phone}\nEmail : ${email}\nMessage : ${message}`,
                     start,
-                    end: new Date(new Date(start).getTime() + heure_typeCils[eyelashType] * 60 * 60 * 1000).toISOString(),
+                    end: new Date(new Date(start).getTime() + HEURE_TYPE_CILS[eyelashType] * 60 * 60 * 1000).toISOString(),
                     userId: localStorage.getItem("userId")
                 })
             });
@@ -197,7 +111,7 @@ function CalendarApp() {
 
             if (data.success) {
                 setShowModal(false);
-                setFormData({phone: '', email: '', message: '', start: ''});
+                setFormData({ phone: '', email: '', message: '', start: '' });
 
                 const userId = localStorage.getItem("userId");
                 const stored = localStorage.getItem(userId);
@@ -224,71 +138,12 @@ function CalendarApp() {
         }
     };
 
-
+// Sélection du type de cils
     const handleTypeSelect = (type) => {
         setIsLoading(true);
         setEyelashType(type);
 
-        const fetchPromise = fetch("http://localhost:5000/appointments")
-            .then(res => res.json())
-            .then(data => {
-                console.log("Data fetchedaaaaaaaaaaaaaaaaaa:", data);
-                const currentUserId = localStorage.getItem("userId");
-                let myEventIds = JSON.parse(localStorage.getItem(currentUserId) || "[]");
-
-                // Vérifie si au moins un event.id est dans myEventIds
-                const userStillHasEvent = data.some(event => myEventIds.includes(event.id));
-
-                // Si aucun de ses events n'existe encore, on régénère un userId
-                if (!userStillHasEvent) {
-                    // Supprimer l'ancienne clé
-                    localStorage.removeItem(currentUserId);
-
-                    // Générer un nouvel ID (ex: UUID v4 simplifié ici)
-                    const newUserId = crypto.randomUUID();
-
-                    // Créer une nouvelle entrée vide
-                    localStorage.setItem(newUserId, JSON.stringify([]));
-                    localStorage.setItem("userId", newUserId);
-
-                    // Mettre à jour les variables locales
-                    myEventIds = [];
-                }
-
-                // Met à jour l'affichage des événements
-// Met à jour l'affichage des événements
-                const processedEvents = data
-                    .filter(event => {
-                        const isMine = myEventIds.includes(event.id);
-                        const isPrivate = event.visibility === 'private';
-                        // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
-                        return !isPrivate || isMine;
-                    })
-                    .map(event => {
-                        const isMine = myEventIds.includes(event.id);
-                        if (isMine) {
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#b85c9e'
-                            };
-                        } else {
-                            const startDate = new Date(event.start);
-                            const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#ff3b3b',
-                                title: 'Période indisponible'
-                            };
-                        }
-                    });
-
-
-                setEvents(processedEvents);
-            })
-            .catch(err => console.error("Erreur de chargement :", err));
-
+        const fetchPromise = loadEvents();
         const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
 
         Promise.all([fetchPromise, delayPromise]).then(() => {
@@ -296,65 +151,13 @@ function CalendarApp() {
         });
     };
 
-
+// Rafraîchir les événements (après ajout par ex.)
     const refreshEvents = () => {
-        fetch("http://localhost:5000/appointments")
-            .then(res => res.json())
-            .then(data => {
-                console.log("Data fetchedaaaaaaaaaaaaaaaaaa:", data);
-                const currentUserId = localStorage.getItem("userId");
-                let myEventIds = JSON.parse(localStorage.getItem(currentUserId) || "[]");
-
-                // Vérifie si au moins un event.id est dans myEventIds
-                const userStillHasEvent = data.some(event => myEventIds.includes(event.id));
-
-                // Si aucun de ses events n'existe encore, on régénère un userId
-                if (!userStillHasEvent) {
-                    // Supprimer l'ancienne clé
-                    localStorage.removeItem(currentUserId);
-
-                    // Générer un nouvel ID (ex: UUID v4 simplifié ici)
-                    const newUserId = crypto.randomUUID();
-
-                    // Créer une nouvelle entrée vide
-                    localStorage.setItem(newUserId, JSON.stringify([]));
-                    localStorage.setItem("userId", newUserId);
-
-                    // Mettre à jour les variables locales
-                    myEventIds = [];
-                }
-
-                // Met à jour l'affichage des événements
-// Met à jour l'affichage des événements
-                const processedEvents = data
-                    .filter(event => {
-                        const isMine = myEventIds.includes(event.id);
-                        const isPrivate = event.visibility === 'private';
-                        // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
-                        return !isPrivate || isMine;
-                    })
-                    .map(event => {
-                        const isMine = myEventIds.includes(event.id);
-                        if (isMine) {
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#b85c9e'
-                            };
-                        } else {
-                            const startDate = new Date(event.start);
-                            const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#ff3b3b',
-                                title: 'Période indisponible'
-                            };
-                        }
-                    });
-                setEvents(processedEvents);
-            });
+        fetchAppointments().then(fetchedEvents => {
+            setEvents(fetchedEvents);
+        });
     };
+
 
     if (isLoading && loadingVisible) {
         return <LoadingScreen isFadingOut={!loadingVisible}/>;
@@ -362,55 +165,7 @@ function CalendarApp() {
 
     // Page de sélection de type de cils
     if (!eyelashType) {
-        return (
-            <div className={"eyelashSelectWrapper"}>
-                <h2 className={"title"}>Choisissez votre type d'extensions de cils</h2>
-                <p className={"subtitle"}>Avant de continuer, sélectionnez le type qui vous convient</p>
-                <div className={"typeList"}>
-                    {[
-                        {
-                            type: 'Classique',
-                            desc: "Un look naturel avec un cil synthétique par cil naturel.",
-                            image: '/photos/classic.jpeg'
-                        },
-                        {
-                            type: 'Volume',
-                            desc: "Un style plus fourni grâce à plusieurs extensions sur un cil naturel.",
-                            image: '/photos/volume.jpeg'
-                        },
-                        {
-                            type: 'Hybride',
-                            desc: "Un mélange de classique et volume pour un look équilibré.",
-                            image: '/photos/hybrid.jpeg'
-                        }
-                    ].map(({type, desc, image}) => (
-                        <div
-                            key={type}
-                            onClick={() => handleTypeSelect(type)}
-                            onMouseEnter={() => setHoveredType(type)}
-                            onMouseLeave={() => setHoveredType(null)}
-                            className={"typeCard"}
-                        >
-                            <img
-                                src={image}
-                                alt={`${type} extensions`}
-                                style={{
-                                    width: '100%',
-                                    height: '150px',
-                                    objectFit: 'cover',
-                                    borderRadius: '0.8rem',
-                                    marginBottom: '0.8rem'
-                                }}
-                            />
-                            <h3 style={{marginBottom: '0.5rem', color: '#b85c9e'}}>{type}</h3>
-                            <p>{desc}</p>
-                        </div>
-                    ))}
-
-
-                </div>
-            </div>
-        );
+        return  <EyelashTypeSelector onSelect={handleTypeSelect} />
     }
 
     return (
@@ -418,7 +173,6 @@ function CalendarApp() {
         <div className={"container"}>
             <h1 className={"title"}>✨ Réserver votre rendez-vous beauté ✨</h1>
             <p className={"subtitle"}>Extensions de cils : <strong>{eyelashType}</strong></p>
-
             <div className={"calendarWrapper"}>
                 <FullCalendar
                     ref={calendarRef}
@@ -438,11 +192,6 @@ function CalendarApp() {
                         center: 'title',
                         end: 'timeGridWeek,timeGridDay'
                     }}
-                    // eventClick={(info) => {
-                    //     // Sinon, continuer le comportement par défaut
-                    //     console.log('Event clicked:', info.event);
-                    //     // ...ton action normale ici (modal, navigation, etc.)
-                    // }}
                 />
             </div>
 
@@ -494,6 +243,7 @@ function CalendarApp() {
                     </div>
                 </div>
             )}
+
             {showLoadingModal && (
                 <div className="modal-backdrop">
                     <div className="modal-content">
