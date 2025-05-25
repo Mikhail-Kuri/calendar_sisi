@@ -8,7 +8,7 @@ export function BackgroundBubbles() {
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        zIndex: 0,
+        zIndex: -1,
     };
 
 
@@ -30,7 +30,7 @@ export function BackgroundBubbles() {
                 borderRadius: '50%',
                 animation: `rise ${duration}s ease-in infinite`,
                 animationDelay: `${delay}s`,
-                zIndex: 0,
+                zIndex: -1,
                 pointerEvents: 'none'
             }}/>
         );

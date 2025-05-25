@@ -26,12 +26,27 @@ function CalendarApp() {
     const isValidPhone = (phone) =>
         /^\(\d{3}\) \d{3}-\d{4}$/.test(phone);
 
+    const heure_typeCils = {
+        'Classique': 3,
+        'Volume': 5,
+        'Hybride': 4,
+    }
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingVisible, setLoadingVisible] = useState(true);
 
+    const [showLoadingModal, setShowLoadingModal] = useState(false);
+    const [loadingSuccess, setLoadingSuccess] = useState(false);
+
+
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [currentView, setCurrentView] = useState(isMobile ? 'dayGridMonth' : 'timeGridWeek');
+
+    function goNext() {
+        const calendarApi = calendarRef.current.getApi()
+        calendarApi.next()
+    }
 
     useEffect(() => {
         if (!localStorage.getItem("userId")) {
@@ -82,25 +97,34 @@ function CalendarApp() {
                     }
 
                     // Met à jour l'affichage des événements
-                    const processedEvents = data.map(event => {
-                        const isMine = myEventIds.includes(event.id);
-                        if (isMine) {
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#b85c9e'
-                            };
-                        } else {
-                            const startDate = new Date(event.start);
-                            const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
-                            return {
-                                ...event,
-                                display: 'auto',
-                                color: '#ff3b3b',
-                                title: 'Période indisponible'
-                            };
-                        }
-                    });
+// Met à jour l'affichage des événements
+                    const processedEvents = data
+                        .filter(event => {
+                            const isMine = myEventIds.includes(event.id);
+                            const isPrivate = event.visibility === 'private';
+                            // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
+                            return !isPrivate || isMine;
+                        })
+                        .map(event => {
+                            const isMine = myEventIds.includes(event.id);
+                            if (isMine) {
+                                return {
+                                    ...event,
+                                    display: 'auto',
+                                    color: '#b85c9e'
+                                };
+                            } else {
+                                const startDate = new Date(event.start);
+                                const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
+                                return {
+                                    ...event,
+                                    display: 'auto',
+                                    color: '#ff3b3b',
+                                    title: 'Période indisponible'
+                                };
+                            }
+                        });
+
 
                     setEvents(processedEvents);
                 } catch (err) {
@@ -140,11 +164,6 @@ function CalendarApp() {
             return;
         }
 
-        if (!eyelashType || !phone || !email) {
-            alert("Veuillez remplir tous les champs obligatoires.");
-            return;
-        }
-
         if (!isValidPhone(phone)) {
             alert("Numéro de téléphone invalide. Format attendu : (514) 123-4567");
             return;
@@ -155,24 +174,27 @@ function CalendarApp() {
             return;
         }
 
-
         if (isSubmitting) return;
-
         setIsSubmitting(true);
+        setShowLoadingModal(true);
+        setLoadingSuccess(false); // reset au début
+
         try {
             const res = await fetch('http://localhost:5000/appointments', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    title: eyelashType,
-                    description: `Téléphone : ${phone}\nEmail : ${email}\nMessage : ${message}`,
+                    title: "En attente du depot",
+                    description: `Type de lash: ${eyelashType}\nTéléphone : ${phone}\nEmail : ${email}\nMessage : ${message}`,
                     start,
+                    end: new Date(new Date(start).getTime() + heure_typeCils[eyelashType] * 60 * 60 * 1000).toISOString(),
                     userId: localStorage.getItem("userId")
                 })
             });
 
             const data = await res.json();
             console.log("Réponse du serveur :", data);
+
             if (data.success) {
                 setShowModal(false);
                 setFormData({phone: '', email: '', message: '', start: ''});
@@ -180,22 +202,28 @@ function CalendarApp() {
                 const userId = localStorage.getItem("userId");
                 const stored = localStorage.getItem(userId);
                 const existingIds = stored ? JSON.parse(stored) : [];
-
-                // Ajouter le nouveau eventId à la liste
                 const updatedIds = [...existingIds, data.eventId];
-                localStorage.setItem(userId, JSON.stringify(updatedIds));
 
+                localStorage.setItem(userId, JSON.stringify(updatedIds));
                 refreshEvents();
+
+                setLoadingSuccess(true);
+                setTimeout(() => {
+                    setShowLoadingModal(false);
+                }, 2000);
             } else {
                 alert("❌ Erreur de création.");
+                setShowLoadingModal(false);
             }
         } catch (err) {
             console.error(err);
             alert("Erreur réseau.");
+            setShowLoadingModal(false);
         } finally {
             setIsSubmitting(false);
         }
     };
+
 
     const handleTypeSelect = (type) => {
         setIsLoading(true);
@@ -228,25 +256,35 @@ function CalendarApp() {
                 }
 
                 // Met à jour l'affichage des événements
-                const processedEvents = data.map(event => {
-                    const isMine = myEventIds.includes(event.id);
-                    if (isMine) {
-                        return {
-                            ...event,
-                            display: 'auto',
-                            color: '#b85c9e'
-                        };
-                    } else {
-                        return {
-                            ...event,
-                            display: 'background',
-                            backgroundColor: '#ff3b3b',       // 🔴 Rouge très voyant
-                            borderColor: '#ff3b3b',
-                            color: '#282c34',
-                            // title: 'Période indisponible'
-                        };
-                    }
-                });
+// Met à jour l'affichage des événements
+                const processedEvents = data
+                    .filter(event => {
+                        const isMine = myEventIds.includes(event.id);
+                        const isPrivate = event.visibility === 'private';
+                        // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
+                        return !isPrivate || isMine;
+                    })
+                    .map(event => {
+                        const isMine = myEventIds.includes(event.id);
+                        if (isMine) {
+                            return {
+                                ...event,
+                                display: 'auto',
+                                color: '#b85c9e'
+                            };
+                        } else {
+                            const startDate = new Date(event.start);
+                            const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
+                            return {
+                                ...event,
+                                display: 'auto',
+                                color: '#ff3b3b',
+                                title: 'Période indisponible'
+                            };
+                        }
+                    });
+
+
                 setEvents(processedEvents);
             })
             .catch(err => console.error("Erreur de chargement :", err));
@@ -263,6 +301,7 @@ function CalendarApp() {
         fetch("http://localhost:5000/appointments")
             .then(res => res.json())
             .then(data => {
+                console.log("Data fetchedaaaaaaaaaaaaaaaaaa:", data);
                 const currentUserId = localStorage.getItem("userId");
                 let myEventIds = JSON.parse(localStorage.getItem(currentUserId) || "[]");
 
@@ -286,28 +325,33 @@ function CalendarApp() {
                 }
 
                 // Met à jour l'affichage des événements
-                const processedEvents = data.map(event => {
-                    const isMine = myEventIds.includes(event.id);
-                    if (isMine) {
-                        return {
-                            ...event,
-                            display: 'auto',
-                            color: '#b85c9e'
-                        };
-                    } else {
-                        const startDate = new Date(event.start);
-                        const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
-                        return {
-                            ...event,
-                            display: 'background',
-                            backgroundColor: '#ff3b3b',       // 🔴 Rouge très voyant
-                            borderColor: '#ff3b3b',
-                            color: '#282c34',
-                            // title: 'Période indisponible'
-                        };
-                    }
-                });
-
+// Met à jour l'affichage des événements
+                const processedEvents = data
+                    .filter(event => {
+                        const isMine = myEventIds.includes(event.id);
+                        const isPrivate = event.visibility === 'private';
+                        // On inclut l'événement s'il est public OU si c'est un privé qui m'appartient
+                        return !isPrivate || isMine;
+                    })
+                    .map(event => {
+                        const isMine = myEventIds.includes(event.id);
+                        if (isMine) {
+                            return {
+                                ...event,
+                                display: 'auto',
+                                color: '#b85c9e'
+                            };
+                        } else {
+                            const startDate = new Date(event.start);
+                            const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // +4h
+                            return {
+                                ...event,
+                                display: 'auto',
+                                color: '#ff3b3b',
+                                title: 'Période indisponible'
+                            };
+                        }
+                    });
                 setEvents(processedEvents);
             });
     };
@@ -379,7 +423,7 @@ function CalendarApp() {
                 <FullCalendar
                     ref={calendarRef}
                     plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
-                    initialView={currentView}
+                    initialView={currentView}// ou 'timeGridDay'
                     nowIndicator
                     editable={false}
                     selectable
@@ -390,11 +434,10 @@ function CalendarApp() {
                     }}
                     aspectRatio={isMobile ? 0.8 : 1.5}
                     headerToolbar={{
-                        start: isMobile ? 'prev,next' : 'prev,next today',
+                        start: 'prev,next today',
                         center: 'title',
-                        end: isMobile ? '' : 'timeGridWeek,timeGridDay'
+                        end: 'timeGridWeek,timeGridDay'
                     }}
-                    height="auto"
                     // eventClick={(info) => {
                     //     // Sinon, continuer le comportement par défaut
                     //     console.log('Event clicked:', info.event);
@@ -451,6 +494,24 @@ function CalendarApp() {
                     </div>
                 </div>
             )}
+            {showLoadingModal && (
+                <div className="modal-backdrop">
+                    <div className="modal-content">
+                        {!loadingSuccess ? (
+                            <>
+                                <div className="spinner"/>
+                                <p>Traitement en cours...</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="success-check">&#10004;</div>
+                                <p>Réservation réussie !</p>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <BackgroundBubbles/>
 
         </div>

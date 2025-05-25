@@ -36,7 +36,9 @@ app.get('/appointments', async (req, res) => {
       title: e.summary || "Sans titre",
       start: e.start.dateTime || e.start.date,
       end: e.end.dateTime || e.end.date,
-      description: e.description || ''
+      description: e.description || '',
+      status: e.status || 'tentative',
+      visibility: e.visibility || 'default',
     }));
 
     res.status(200).json(events);
@@ -49,20 +51,19 @@ app.get('/appointments', async (req, res) => {
 
 app.post('/appointments', async (req, res) => {
   try {
-    const { title, description, start } = req.body;
+    const { title, description, start, end } = req.body;
 
     if (!title || !start) {
       return res.status(400).json({ success: false, message: "Le titre et la date de début sont obligatoires." });
     }
 
-    // Calcule la fin du rendez-vous (durée fixe de 4h)
-    const end = new Date(new Date(start).getTime() + 4 * 60 * 60 * 1000).toISOString();
-
     const event = {
       summary: title,
       description,
       start: { dateTime: start, timeZone: 'America/Toronto' },
-      end: { dateTime: end, timeZone: 'America/Toronto' }
+      end: { dateTime: end, timeZone: 'America/Toronto' },
+      status:"tentative",
+      colorId: 5
     };
 
     const response = await calendar.events.insert({
