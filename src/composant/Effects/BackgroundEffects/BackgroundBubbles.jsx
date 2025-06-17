@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 export function BackgroundBubbles() {
     const bubbleStyle = {
@@ -11,30 +11,31 @@ export function BackgroundBubbles() {
         zIndex: -1,
     };
 
+    const bubbles = useMemo(() => {
+        const bubbleCount = 10;
+        return Array.from({ length: bubbleCount }).map((_, i) => {
+            const size = Math.random() * 100 + 40;
+            const left = Math.random() * 100;
+            const duration = Math.random() * 20 + 20;
+            const delay = Math.random() * 10;
 
-    const bubbleCount = 10;
-    const bubbles = Array.from({length: bubbleCount}).map((_, i) => {
-        const size = Math.random() * 100 + 40; // entre 40px et 140px
-        const left = Math.random() * 100; // en %
-        const duration = Math.random() * 20 + 20; // entre 20s et 40s
-        const delay = Math.random() * 10; // entre 0 et 10s
-
-        return (
-            <div key={i} style={{
-                position: 'absolute',
-                bottom: '-150px',
-                left: `${left}%`,
-                width: `${size}px`,
-                height: `${size}px`,
-                background: "rgba(184, 92, 158, 0.3)",
-                borderRadius: '50%',
-                animation: `rise ${duration}s ease-in infinite`,
-                animationDelay: `${delay}s`,
-                zIndex: -1,
-                pointerEvents: 'none'
-            }}/>
-        );
-    });
+            return (
+                <div key={i} style={{
+                    position: 'absolute',
+                    bottom: '-150px',
+                    left: `${left}%`,
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    background: "rgba(184, 92, 158, 0.3)",
+                    borderRadius: '50%',
+                    animation: `rise ${duration}s ease-in infinite`,
+                    animationDelay: `${delay}s`,
+                    zIndex: -1,
+                    pointerEvents: 'none'
+                }} />
+            );
+        });
+    }, []); // vide = exécuté une seule fois
 
     return (
         <div style={bubbleStyle}>

@@ -10,6 +10,8 @@ import {formatPhoneNumber, isValidEmail, isValidPhone} from "../../utils/validat
 import {HEURE_TYPE_CILS} from "../../utils/constants";
 import EyelashTypeSelector from "../../composant/Pages/EyelashTypeSelector";
 import { fetchAppointments } from '../../services/fetcher/fetchAppointments';
+import ReCAPTCHA from 'react-google-recaptcha'
+
 
 function CalendarApp() {
     const [events, setEvents] = useState([]);
@@ -29,6 +31,9 @@ function CalendarApp() {
     const [loadingSuccess, setLoadingSuccess] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [currentView, setCurrentView] = useState(isMobile ? 'dayGridMonth' : 'timeGridWeek');
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState(null);
+
 
 // Chargement des événements
     const loadEvents = async () => {
@@ -55,7 +60,7 @@ function CalendarApp() {
 
 // Chargement des événements lorsque le type est sélectionné
     useEffect(() => {
-        if (eyelashType) {
+        if (eyelashType && !hasLoaded) {
             setIsLoading(true);
             loadEvents().then(() => {
                 setIsLoading(false);
@@ -140,15 +145,21 @@ function CalendarApp() {
 
 // Sélection du type de cils
     const handleTypeSelect = (type) => {
-        setIsLoading(true);
+
         setEyelashType(type);
+        console.log("Type sélectionné :", type);
+        console.log(hasLoaded)
+        if (!hasLoaded) {
+            setIsLoading(true);
+            const fetchPromise = loadEvents();
+            const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
 
-        const fetchPromise = loadEvents();
-        const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
+            Promise.all([fetchPromise, delayPromise]).then(() => {
+                setIsLoading(false);
+            });
 
-        Promise.all([fetchPromise, delayPromise]).then(() => {
-            setIsLoading(false);
-        });
+            setHasLoaded(true);
+        }
     };
 
 // Rafraîchir les événements (après ajout par ex.)
@@ -172,7 +183,16 @@ function CalendarApp() {
 
         <div className={"container"}>
             <h1 className={"title"}>✨ Réserver votre rendez-vous beauté ✨</h1>
-            <p className={"subtitle"}>Extensions de cils : <strong>{eyelashType}</strong></p>
+            <p className="subtitle">
+                Extensions de cils : <strong>{eyelashType}</strong>
+                <select onChange={(e) => handleTypeSelect(e.target.value)} className="custom-select">
+                    <option value="Classique">Classique</option>
+                    <option value="Volume">Volume</option>
+                    <option value="Hybride">Hybride</option>
+                </select>
+            </p>
+
+
             <div className={"calendarWrapper"}>
                 <FullCalendar
                     ref={calendarRef}
@@ -196,53 +216,74 @@ function CalendarApp() {
             </div>
 
             {showModal && (
-                <div className={"modalOverlay"}>
-                    <div className={"modalContent"}>
-                        <h2 className={"modalTitle"}>📌 Informations du rendez-vous</h2>
+                <form
+                    name={"appointmentForm"}
+                    id={"appointmentForm"}
+                    // onSubmit={(e) => {
+                    //     e.preventDefault();
+                    //     if (captchaToken && formData.phone.trim() && formData.email.trim()) {
+                    //         handleSubmit();
+                    //     }
+                    // }}
+                >
+                    <div className={"modalOverlay"}>
+                        <div className={"modalContent"}>
+                            <h2 className={"modalTitle"}>📌 Informations du rendez-vous</h2>
 
-                        <label>Numéro de téléphone *</label>
-                        <input
-                            type="text"
-                            className={"input"}
-                            placeholder="(514) 123-4567"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({...formData, phone: formatPhoneNumber(e.target.value)})}
-                        />
+                            <label>Numéro de téléphone *</label>
+                            <input
+                                type="text"
+                                className={"input"}
+                                placeholder="(514) 123-4567"
+                                value={formData.phone}
+                                onChange={(e) => setFormData({...formData, phone: formatPhoneNumber(e.target.value)})}
+                            />
 
-                        <label>Email *</label>
-                        <input
-                            type="email"
-                            className={"input"}
-                            value={formData.email}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        />
+                            <label>Email *</label>
+                            <input
+                                type="email"
+                                className={"input"}
+                                value={formData.email}
+                                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            />
 
-                        <label>Message (optionnel)</label>
-                        <textarea
-                            className={"textarea"}
-                            value={formData.message}
-                            onChange={(e) => setFormData({...formData, message: e.target.value})}
-                        />
+                            <label>Message (optionnel)</label>
+                            <textarea
+                                className={"textarea"}
+                                value={formData.message}
+                                onChange={(e) => setFormData({...formData, message: e.target.value})}
+                            />
 
-                        <div className={"modalActions"}>
-                            <button
-                                style={{
-                                    ...styles.button,
-                                    ...(formData.phone && formData.email ? {} : styles.buttonDisabled)
-                                }}
-                                disabled={!formData.phone.trim() || !formData.email.trim()}
-                                onClick={handleSubmit}
-                            >
-                                Réserver
-                            </button>
-                            <button className={"button"}
-                                    onClick={() => setShowModal(false)}>
-                                Annuler
-                            </button>
+                            {/*<div className="recaptcha-wrapper" style={{margin: '20px 0'}}>*/}
+                            {/*    <ReCAPTCHA*/}
+                            {/*        sitekey={process.env.REACT_APP_SITE_KEY}*/}
+                            {/*        onChange={(token) => setCaptchaToken(token)}*/}
+                            {/*    />*/}
+                            {/*</div>*/}
+
+                            <div className={"modalActions"}>
+                                <button
+                                    type="submit"
+                                    className={"button"}
+                                    style={{
+                                        ...styles.button,
+                                        ...(formData.phone && formData.email && captchaToken ? {} : styles.buttonDisabled)
+                                    }}
+                                    disabled={!formData.phone.trim() || !formData.email.trim() || !captchaToken}
+                                >
+                                    Réserver
+                                </button>
+                                <button type="button" className={"button"} onClick={() => setShowModal(false)}>
+                                    Annuler
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </form>
+
+
             )}
+
 
             {showLoadingModal && (
                 <div className="modal-backdrop">
